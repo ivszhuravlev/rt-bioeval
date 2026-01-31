@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DVH Analysis Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 8px;
+            padding: 60px 20px;
+            text-align: center;
+            background: #fafafa;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #e8e8ff;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .files-list {
+            margin-top: 20px;
+        }
+
+        .file-item {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .results {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .download-btn {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px;
+            font-size: 14px;
+        }
+
+        .download-btn:hover {
+            background: #218838;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 DVH Analysis Tool</h1>
+        <p class="subtitle">Upload DVH files to calculate TCP/NTCP and compare VMAT vs IMRT</p>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">
+                Click to select DVH files or drag and drop here
+                <br><small>(.txt files from TPS)</small>
+            </div>
+            <input type="file" id="fileInput" multiple accept=".txt">
+        </div>
+
+        <div id="filesList" class="files-list"></div>
+
+        <button class="btn" id="analyzeBtn" style="display:none;">Run Analysis</button>
+
+        <div class="spinner" id="spinner"></div>
+
+        <div class="status" id="status"></div>
+
+        <div class="results" id="results">
+            <h3>Results Ready</h3>
+            <a href="/download/results.json" class="download-btn">Download JSON</a>
+            <a href="/download/results.csv" class="download-btn">Download CSV</a>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const filesList = document.getElementById('filesList');
+        const status = document.getElementById('status');
+        const spinner = document.getElementById('spinner');
+        const results = document.getElementById('results');
+
+        let selectedFiles = [];
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files).filter(f => f.name.endsWith('.txt'));
+
+            if (selectedFiles.length === 0) {
+                showStatus('Please select .txt files', 'error');
+                return;
+            }
+
+            filesList.innerHTML = '';
+            selectedFiles.forEach(file => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.textContent = file.name;
+                filesList.appendChild(div);
+            });
+
+            analyzeBtn.style.display = 'inline-block';
+            results.style.display = 'none';
+        }
+
+        analyzeBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files[]', file);
+            });
+
+            analyzeBtn.disabled = true;
+            spinner.style.display = 'block';
+            status.style.display = 'none';
+            results.style.display = 'none';
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus(data.message, 'success');
+                    results.style.display = 'block';
+                } else {
+                    showStatus('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                analyzeBtn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        });
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
