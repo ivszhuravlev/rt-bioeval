@@ -69,8 +69,20 @@ def upload_files():
 
     # Run analysis
     try:
+        print(f"\n[DEBUG] Starting analysis...")
+        print(f"[DEBUG] Upload dir: {upload_dir}")
+        print(f"[DEBUG] Output dir: {output_dir}")
+        print(f"[DEBUG] Files: {saved_files}")
+
         config_path = PROJECT_ROOT / 'config' / 'model_params.yaml'
+        print(f"[DEBUG] Config: {config_path}")
+
         run_analysis(upload_dir, output_dir, config_path)
+
+        print(f"[DEBUG] Analysis complete!")
+        print(f"[DEBUG] Output files:")
+        for f in output_dir.glob('*'):
+            print(f"  - {f.name}: {f.stat().st_size} bytes")
 
         return jsonify({
             'success': True,
@@ -79,6 +91,9 @@ def upload_files():
         })
 
     except Exception as e:
+        print(f"[ERROR] Analysis failed: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 
@@ -111,26 +126,39 @@ def get_results():
     return jsonify({'files': files})
 
 
-def open_browser():
+def find_free_port():
+    """Find an available port between 5000-5010."""
+    import socket
+    for port in range(5000, 5011):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('127.0.0.1', port)) != 0:
+                return port
+    raise RuntimeError("No free ports available (tried 5000-5010)")
+
+
+def open_browser(port):
     """Open browser after short delay."""
-    webbrowser.open('http://127.0.0.1:5000')
+    webbrowser.open(f'http://127.0.0.1:{port}')
 
 
 def main():
     """Run Flask app and open browser."""
+    # Find available port automatically
+    port = find_free_port()
+
     print("=" * 60)
     print("DVH Analysis Tool")
     print("=" * 60)
     print("\nStarting server...")
-    print("Opening browser at http://127.0.0.1:5000")
+    print(f"Opening browser at http://127.0.0.1:{port}")
     print("\nPress Ctrl+C to stop server")
     print("=" * 60)
 
     # Open browser after 1 second
-    Timer(1, open_browser).start()
+    Timer(1, lambda: open_browser(port)).start()
 
-    # Run Flask app
-    app.run(host='127.0.0.1', port=5000, debug=False)
+    # Run Flask app on auto-detected port
+    app.run(host='127.0.0.1', port=port, debug=False)
 
 
 if __name__ == '__main__':
