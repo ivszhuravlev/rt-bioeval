@@ -26,6 +26,9 @@ output/
 web/output/
 web/uploads/
 
+# Large DVH example files (~6MB each, ~170MB total)
+examples/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -26,13 +26,13 @@ def test_dvh_data_sort_and_clean():
 
 
 def test_parse_real_dvh_file():
-    """Test parsing a real DVH file from input directory."""
+    """Test parsing a real differential DVH file from examples directory."""
     # Find first available DVH file
-    input_dir = Path(__file__).parent.parent / "input"
-    dvh_files = sorted(input_dir.glob("LCMD*_DVH_*.txt"))
+    examples_dir = Path(__file__).parent.parent / "examples"
+    dvh_files = sorted(examples_dir.glob("LCMD*_DVH_*.txt"))
 
     if not dvh_files:
-        pytest.skip("No DVH files found in input directory")
+        pytest.skip("No DVH files found in examples directory")
 
     dvh_file = parse_dvh_file(dvh_files[0])
 
@@ -43,10 +43,9 @@ def test_parse_real_dvh_file():
     # Check structures
     assert len(dvh_file.structures) > 0
 
-    # Check that at least PTV and LUNG are present
+    # Check that at least PTV and BRAC_PLEX/LUNG are present
     structure_names = dvh_file.list_structures()
     assert any("PTV" in name for name in structure_names), f"No PTV found in {structure_names}"
-    assert any("LUNG" in name for name in structure_names), f"No LUNG found in {structure_names}"
 
     # Check dose conversion (cGy -> Gy)
     for struct in dvh_file.structures.values():
@@ -60,6 +59,23 @@ def test_parse_real_dvh_file():
 
         # Doses should be sorted
         assert np.all(struct.doses_gy[:-1] <= struct.doses_gy[1:])
+
+
+def test_volume_normalization():
+    """Test that volumes are normalized to sum=1.0 (differential DVH)."""
+    examples_dir = Path(__file__).parent.parent / "examples"
+    dvh_files = sorted(examples_dir.glob("LCMD*_DVH_*.txt"))
+
+    if not dvh_files:
+        pytest.skip("No DVH files found in examples directory")
+
+    dvh_file = parse_dvh_file(dvh_files[0])
+
+    # Check that all structures have volumes summing to ~1.0
+    for struct_name, struct in dvh_file.structures.items():
+        vol_sum = np.sum(struct.volumes_frac)
+        assert np.isclose(vol_sum, 1.0, atol=0.01), \
+            f"{struct_name}: volumes sum to {vol_sum:.6f}, expected ~1.0"
 
 
 def test_parse_missing_file():

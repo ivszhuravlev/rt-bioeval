@@ -12,7 +12,7 @@ from datetime import datetime
 
 from dvh.parser import parse_dvh_file, DVHFile
 from dvh.structures import StructureMapper, validate_required_structures
-from models.tcp_niemierko import calculate_tcp_from_dvh, cumulative_to_differential_dvh
+from models.tcp_niemierko import calculate_tcp_from_dvh, differential_to_cumulative_dvh
 from models.ntcp_lkb import calculate_ntcp_from_dvh
 from metrics.lung import calculate_lung_metrics
 from metrics.cord import calculate_cord_metrics
@@ -51,11 +51,8 @@ def analyze_plan(
     # Find PTV
     ptv_data = mapper.find_structure(dvh_file, 'ptv')
 
-    # Convert cumulative to differential for TCP calculation
-    diff_volumes_ptv = cumulative_to_differential_dvh(
-        ptv_data.doses_gy,
-        ptv_data.volumes_frac
-    )
+    # Data is already differential from parser
+    diff_volumes_ptv = ptv_data.volumes_frac
 
     # Calculate TCP
     tcp_result = calculate_tcp_from_dvh(
@@ -74,11 +71,8 @@ def analyze_plan(
         if organ_data is None:
             continue
 
-        # Convert cumulative to differential for NTCP
-        diff_volumes = cumulative_to_differential_dvh(
-            organ_data.doses_gy,
-            organ_data.volumes_frac
-        )
+        # Data is already differential from parser
+        diff_volumes = organ_data.volumes_frac
 
         # Calculate NTCP
         ntcp_result = calculate_ntcp_from_dvh(
@@ -90,17 +84,27 @@ def analyze_plan(
 
         # Calculate organ-specific metrics
         if organ == 'lung':
+            # Convert to cumulative for V5/V20 calculations
+            cumulative_volumes = differential_to_cumulative_dvh(
+                organ_data.doses_gy,
+                diff_volumes
+            )
             lung_metrics = calculate_lung_metrics(
                 organ_data.doses_gy,
                 diff_volumes,
-                organ_data.volumes_frac  # cumulative for V5/V20
+                cumulative_volumes
             )
             results['metrics']['lung'] = lung_metrics
 
         elif organ == 'spinal_cord':
+            # Convert to cumulative for Dmax calculation
+            cumulative_volumes = differential_to_cumulative_dvh(
+                organ_data.doses_gy,
+                diff_volumes
+            )
             cord_metrics = calculate_cord_metrics(
                 organ_data.doses_gy,
-                cumulative_volumes_frac=organ_data.volumes_frac,
+                cumulative_volumes_frac=cumulative_volumes,
                 total_volume_cc=None  # Not available in current files
             )
             results['metrics']['spinal_cord'] = cord_metrics

@@ -197,3 +197,30 @@ def cumulative_to_differential_dvh(
         )
 
     return diff_volumes
+
+
+def differential_to_cumulative_dvh(
+    doses_gy: np.ndarray,
+    differential_volumes_frac: np.ndarray
+) -> np.ndarray:
+    """
+    Convert differential DVH to cumulative DVH.
+
+    Differential DVH: dV = fraction of volume receiving exactly D
+    Cumulative DVH: V(D) = fraction of volume receiving ≥ D
+
+    Args:
+        doses_gy: Dose bins (sorted ascending)
+        differential_volumes_frac: Differential volumes (sum ≈ 1.0)
+
+    Returns:
+        Cumulative volumes (decreasing from 1.0 to ~0.0)
+    """
+    if len(doses_gy) != len(differential_volumes_frac):
+        raise ValueError("doses and volumes must have same length")
+
+    # Cumulative[i] = sum of all differential volumes from i to end
+    # This is reverse cumsum
+    cumulative_volumes = np.cumsum(differential_volumes_frac[::-1])[::-1]
+
+    return cumulative_volumes
