@@ -29,8 +29,10 @@ If you see "Python 3.10" or higher, skip to Step 2.
 
 Open Terminal and run:
 ```bash
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
+
+**Note:** Use `python3 -m pip` instead of just `pip` to ensure correct Python version.
 
 Wait for installation to complete (1-2 minutes).
 
@@ -63,8 +65,11 @@ Your browser will automatically open to `http://localhost:5000`
 
 **File Format:**
 - `.txt` files exported from your Treatment Planning System
-- Must be **Cumulative DVH** (not Differential)
-- Dose in cGy, Volume in %
+- Must be **Differential DVH** format
+- Dose in cGy (centirays)
+- Volume in cm³ (cubic centimeters)
+  - Note: Header may show "Volume Units: %" but actual data is in cm³
+  - Software automatically normalizes volumes
 
 **Required Structures in Files:**
 Your DVH files must contain these structures:
@@ -130,12 +135,13 @@ Import into Excel or any spreadsheet software for further analysis.
 - Restart your computer if needed
 
 **"Module not found" errors:**
-- Run installation again: `pip install -r requirements.txt`
+- Run installation again: `python3 -m pip install -r requirements.txt`
 - Make sure you're using Python 3.10 or newer: `python3 --version`
 
 **Files uploaded but no results:**
-- Check that files are **Cumulative DVH** format (not Differential)
+- Check that files are **Differential DVH** format (not Cumulative)
 - Verify dose is in cGy (~6000 for PTV), not Gy (~60)
+- Ensure your TPS exports differential histograms
 
 ---
 
@@ -169,8 +175,8 @@ For technical support or questions about clinical parameters, refer to the model
 **Current Version:** Release Candidate (RC1)
 
 **What Works:**
-- ✅ DVH parsing (cumulative, all units)
-- ✅ TCP/NTCP calculations (validated)
+- ✅ DVH parsing (differential format, automatic volume normalization)
+- ✅ TCP/NTCP calculations (validated on real data)
 - ✅ All metrics (MLD, V5, V20, Dmax)
 - ✅ Web interface (upload, process, download)
 - ✅ JSON + CSV export
