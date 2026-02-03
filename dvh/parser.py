@@ -1,6 +1,10 @@
 """
 DVH Parser for TPS exported files.
-Reads cumulative DVH data in plain text format.
+Reads differential DVH data in plain text format.
+
+Input format:
+- Doses in cGy (converted to Gy by dividing by 100)
+- Volumes in cm³ (normalized to fractions summing to 1.0)
 """
 
 import re
@@ -17,7 +21,7 @@ class DVHData:
         Args:
             structure_name: Name of the structure (e.g., "PTV_6000", "LUNG_TOTAL")
             doses_gy: Dose bins in Gy (sorted ascending)
-            volumes_frac: Cumulative volumes as fraction 0..1 (sorted by dose)
+            volumes_frac: Differential volumes as fraction (normalized to sum=1.0)
         """
         self.structure_name = structure_name
         self.doses_gy = doses_gy
@@ -115,21 +119,29 @@ def parse_dvh_file(file_path: Path) -> DVHFile:
     # Validate units
     if dose_units.lower() != 'cgy':
         raise ValueError(f"Expected dose units 'cGy', got '{dose_units}'")
-    if volume_units != '%':
-        raise ValueError(f"Expected volume units '%', got '{volume_units}'")
+
+    # Note: volume_units in header often incorrect (shows '%' but actually cm³)
+    # We normalize volumes to sum=1.0 regardless of header
 
     # Parse structure data (skip first 3 lines: metadata, locale, header/empty)
     structures_data = _parse_structure_data(lines[3:])
 
     # Convert to DVHData objects
     structures = {}
-    for struct_name, (doses_cgy, volumes_pct) in structures_data.items():
-        # Convert units: cGy -> Gy, % -> fraction
+    for struct_name, (doses_cgy, volumes_cc) in structures_data.items():
+        # Convert dose units: cGy -> Gy
         doses_gy = np.array(doses_cgy, dtype=np.float64) / 100.0
-        volumes_frac = np.array(volumes_pct, dtype=np.float64) / 100.0
 
-        # Clamp volumes to [0, 1]
-        volumes_frac = np.clip(volumes_frac, 0.0, 1.0)
+        # Normalize volumes to sum=1.0 (convert from cm³ to fractions)
+        volumes_cc_arr = np.array(volumes_cc, dtype=np.float64)
+        vol_sum = volumes_cc_arr.sum()
+
+        if vol_sum <= 0:
+            raise ValueError(
+                f"Total volume must be positive for {struct_name}, got {vol_sum:.4f}"
+            )
+
+        volumes_frac = volumes_cc_arr / vol_sum
 
         structures[struct_name] = DVHData(struct_name, doses_gy, volumes_frac)
 
