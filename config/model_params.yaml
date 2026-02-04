@@ -21,44 +21,48 @@ tcp:
     eqd2_conversion: false
     alpha_beta: 10.0    # For EQD2 conversion (if enabled)
 
+  ctv:
+    a: -10              # Tissue parameter (negative for tumors)
+    tcd50_gy: 60.0      # Dose for 50% tumor control probability (Gy)
+    gamma50: 2.0        # Slope of dose-response curve
+
 # ----------------------------------------
 # NTCP (Normal Tissue Complication Probability)
 # ----------------------------------------
-# Model: Lyman-Kutcher-Burman (LKB)
+# Model: Niemierko EUD-logistic (same formula as TCP)
 # Formulas:
-#   Deff = ( Σ vᵢ × Dᵢ^(1/n) )^n
-#   t = (Deff - TD50) / (m × TD50)
-#   NTCP = Φ(t)   where Φ is cumulative normal distribution
+#   EUD = ( Σ vᵢ × Dᵢ^a )^(1/a)
+#   NTCP = 1 / ( 1 + (TD50 / EUD)^(4×γ₅₀) )
 #
-# References:
-#   Lyman JT. (1985). Radiat Res Suppl 8:S13-19
-#   Kutcher GJ, Burman C. (1989). Int J Radiat Oncol Biol Phys 16(6):1623-1630
-#   Marks LB et al. (2010). Int J Radiat Oncol Biol Phys 76(3 Suppl):S10-19
+# Reference: Niemierko A. (1997). Med Phys 24(1):103-110
 
 ntcp:
   lung:
-    n: 0.87                              # Volume parameter (0 = serial, 1 = parallel)
-    m: 0.18                              # Slope of dose-response curve
+    a: 1                                 # Volume parameter (a=1 → EUD = mean dose)
+    gamma50: 2                           # Slope of dose-response curve
     td50_gy: 24.5                        # Dose for 50% complication probability (Gy)
     endpoint: "pneumonitis grade ≥2"     # Clinical endpoint
 
   heart:
-    n: 0.35
-    m: 0.10
-    td50_gy: 48.0
+    a: 3                                 # Volume parameter (parallel organ)
+    gamma50: 3                           # Slope of dose-response curve
+    td50_gy: 50                          # Dose for 50% complication probability (Gy)
     endpoint: "pericarditis"
 
   esophagus:
-    n: 0.69
-    m: 0.13
-    td50_gy: 68.0
-    endpoint: "esophagitis grade ≥3"
+    a: 19                                # Volume parameter (serial-like organ)
+    gamma50: 4                           # Slope of dose-response curve
+    td50_gy: 68                          # Dose for 50% complication probability (Gy)
+    endpoint: "perforation"
 
   spinal_cord:
-    n: 0.05
-    m: 0.175
-    td50_gy: 50.0
-    endpoint: "myelopathy"
+    a: 20                                # Volume parameter (serial organ, EUD ≈ Dmax)
+    gamma50: 2.28                        # Slope of dose-response curve
+    td50_gy: 66.5                        # Dose for 50% complication probability (Gy)
+    endpoint: "myelitis/necrosis"
+    # NOTE: These parameters are derived from LKB model mapping
+    # (n=0.05, m=0.175, TD50=50 Gy → EUD). Not directly tabulated
+    # by Niemierko. Sensitivity analysis recommended.
 
 # ----------------------------------------
 # Structure Mapping
@@ -69,6 +73,10 @@ structure_mapping:
     - "PTV_6600"
     - "PTV_6000"
     - "PTV"
+  ctv:
+    - "CTV_6600"
+    - "CTV_6000"
+    - "CTV"
   lung:
     - "LUNG_TOTAL"     # standard total lung for NTCP
     - "LUNGS"

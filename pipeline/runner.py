@@ -12,8 +12,11 @@ from datetime import datetime
 
 from dvh.parser import parse_dvh_file, DVHFile
 from dvh.structures import StructureMapper, validate_required_structures
-from models.tcp_niemierko import calculate_tcp_from_dvh, differential_to_cumulative_dvh
-from models.ntcp_lkb import calculate_ntcp_from_dvh
+from models.tcp_niemierko import (
+    calculate_tcp_from_dvh,
+    calculate_ntcp_from_dvh,
+    differential_to_cumulative_dvh
+)
 from metrics.lung import calculate_lung_metrics
 from metrics.cord import calculate_cord_metrics
 
@@ -54,13 +57,24 @@ def analyze_plan(
     # Data is already differential from parser
     diff_volumes_ptv = ptv_data.volumes_frac
 
-    # Calculate TCP
+    # Calculate TCP for PTV
     tcp_result = calculate_tcp_from_dvh(
         ptv_data.doses_gy,
         diff_volumes_ptv,
         config['tcp']['ptv']
     )
     results['tcp']['ptv'] = tcp_result
+
+    # Find CTV (optional)
+    ctv_data = mapper.find_structure_safe(dvh_file, 'ctv')
+    if ctv_data is not None:
+        # Calculate TCP for CTV
+        tcp_ctv_result = calculate_tcp_from_dvh(
+            ctv_data.doses_gy,
+            ctv_data.volumes_frac,
+            config['tcp']['ctv']
+        )
+        results['tcp']['ctv'] = tcp_ctv_result
 
     # Process organs at risk
     organs = ['lung', 'heart', 'esophagus', 'spinal_cord']
@@ -228,13 +242,17 @@ def export_csv(results: Dict[str, Any], output_path: Path):
             # TCP
             if 'ptv' in plan['tcp']:
                 row['tcp_ptv'] = plan['tcp']['ptv']['tcp']
-                row['eud_gy'] = plan['tcp']['ptv']['eud_gy']
+                row['eud_ptv_gy'] = plan['tcp']['ptv']['eud_gy']
+
+            if 'ctv' in plan['tcp']:
+                row['tcp_ctv'] = plan['tcp']['ctv']['tcp']
+                row['eud_ctv_gy'] = plan['tcp']['ctv']['eud_gy']
 
             # NTCP
             for organ in ['lung', 'heart', 'esophagus', 'spinal_cord']:
                 if organ in plan['ntcp']:
                     row[f'ntcp_{organ}'] = plan['ntcp'][organ]['ntcp']
-                    row[f'deff_{organ}_gy'] = plan['ntcp'][organ]['deff_gy']
+                    row[f'eud_{organ}_gy'] = plan['ntcp'][organ]['eud_gy']
 
             # Metrics
             if 'lung' in plan['metrics']:
