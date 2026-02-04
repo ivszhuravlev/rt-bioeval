@@ -84,6 +84,11 @@ def get_default_structure_mapping() -> Dict[str, List[str]]:
             "PTV_6000",
             "PTV",
         ],
+        "ctv": [
+            "CTV_6600",
+            "CTV_6000",
+            "CTV",
+        ],
         "lung": [
             "LUNG_TOTAL",  # Standard total lung for NTCP
             "LUNGS",
