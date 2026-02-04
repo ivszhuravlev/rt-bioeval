@@ -131,9 +131,18 @@ def parse_dvh_file(file_path: Path) -> DVHFile:
     for struct_name, (doses_cgy, volumes_cc) in structures_data.items():
         # Convert dose units: cGy -> Gy
         doses_gy = np.array(doses_cgy, dtype=np.float64) / 100.0
+        volumes_cc_arr = np.array(volumes_cc, dtype=np.float64)
+
+        # Filter out zero-volume bins BEFORE normalization
+        # (prevents artifacts/outliers from affecting EUD calculation)
+        nonzero_mask = volumes_cc_arr > 0
+        doses_gy = doses_gy[nonzero_mask]
+        volumes_cc_arr = volumes_cc_arr[nonzero_mask]
+
+        if len(doses_gy) == 0:
+            raise ValueError(f"No non-zero volumes found for {struct_name}")
 
         # Normalize volumes to sum=1.0 (convert from cm³ to fractions)
-        volumes_cc_arr = np.array(volumes_cc, dtype=np.float64)
         vol_sum = volumes_cc_arr.sum()
 
         if vol_sum <= 0:
