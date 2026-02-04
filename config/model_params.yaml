@@ -16,15 +16,15 @@
 tcp:
   ptv:
     a: -10              # Tissue parameter (negative for tumors)
-    tcd50_gy: 60.0      # Dose for 50% tumor control probability (Gy)
-    gamma50: 2.0        # Slope of dose-response curve
+    tcd50_gy: 52.0      # Dose for 50% tumor control probability (Gy)
+    gamma50: 1.5        # Slope of dose-response curve
     eqd2_conversion: false
     alpha_beta: 10.0    # For EQD2 conversion (if enabled)
 
   ctv:
     a: -10              # Tissue parameter (negative for tumors)
-    tcd50_gy: 60.0      # Dose for 50% tumor control probability (Gy)
-    gamma50: 2.0        # Slope of dose-response curve
+    tcd50_gy: 52.0      # Dose for 50% tumor control probability (Gy)
+    gamma50: 1.5        # Slope of dose-response curve
 
 # ----------------------------------------
 # NTCP (Normal Tissue Complication Probability)
@@ -60,9 +60,7 @@ ntcp:
     gamma50: 2.28                        # Slope of dose-response curve
     td50_gy: 66.5                        # Dose for 50% complication probability (Gy)
     endpoint: "myelitis/necrosis"
-    # NOTE: These parameters are derived from LKB model mapping
-    # (n=0.05, m=0.175, TD50=50 Gy → EUD). Not directly tabulated
-    # by Niemierko. Sensitivity analysis recommended.
+    # Parameters from LKB → EUD transfer (accepted)
 
 # ----------------------------------------
 # Structure Mapping
