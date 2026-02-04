@@ -1,5 +1,8 @@
 """
-TCP (Tumor Control Probability) calculation using Niemierko's EUD-based model.
+TCP and NTCP calculation using Niemierko's EUD-based logistic model.
+
+Both TCP (Tumor Control Probability) and NTCP (Normal Tissue Complication Probability)
+use the same logistic formula with different parameters.
 
 References:
     Niemierko A. (1997). Reporting and analyzing dose distributions: a concept of
@@ -224,3 +227,107 @@ def differential_to_cumulative_dvh(
     cumulative_volumes = np.cumsum(differential_volumes_frac[::-1])[::-1]
 
     return cumulative_volumes
+
+
+def calculate_ntcp(
+    eud_gy: float,
+    td50_gy: float,
+    gamma50: float
+) -> float:
+    """
+    Calculate Normal Tissue Complication Probability (NTCP) from EUD.
+
+    Uses Niemierko EUD-logistic model (same formula as TCP).
+
+    Formula:
+        NTCP = 1 / ( 1 + (TD50 / EUD)^(4×γ₅₀) )
+
+    Args:
+        eud_gy: Equivalent Uniform Dose in Gy
+        td50_gy: Dose for 50% complication probability (Gy)
+        gamma50: Slope of dose-response curve (dimensionless)
+
+    Returns:
+        NTCP as probability in range [0, 1]
+
+    Raises:
+        ValueError: If parameters are invalid
+
+    Example:
+        >>> ntcp = calculate_ntcp(eud_gy=24.5, td50_gy=24.5, gamma50=2.0)
+        >>> ntcp
+        0.5  # exactly 0.5 when EUD = TD50
+    """
+    if eud_gy < 0:
+        raise ValueError(f"EUD must be non-negative, got {eud_gy}")
+
+    if eud_gy == 0:
+        return 0.0
+
+    if td50_gy <= 0:
+        raise ValueError(f"TD50 must be positive, got {td50_gy}")
+
+    if gamma50 <= 0:
+        raise ValueError(f"gamma50 must be positive, got {gamma50}")
+
+    # NTCP = 1 / ( 1 + (TD50 / EUD)^(4×γ₅₀) )
+    ratio = td50_gy / eud_gy
+    exponent = 4 * gamma50
+    ntcp = 1.0 / (1.0 + np.power(ratio, exponent))
+
+    return float(ntcp)
+
+
+def calculate_ntcp_from_dvh(
+    doses_gy: np.ndarray,
+    volumes_frac: np.ndarray,
+    params: Dict[str, Any]
+) -> Dict[str, float]:
+    """
+    Calculate NTCP from DVH data using Niemierko EUD-logistic model.
+
+    This is a high-level function that combines EUD + NTCP calculation.
+
+    Args:
+        doses_gy: Dose bins in Gy
+        volumes_frac: Differential volumes (must sum to ~1.0)
+        params: Dict with keys 'a', 'td50_gy', 'gamma50'
+
+    Returns:
+        Dict with keys:
+            - 'eud_gy': Equivalent Uniform Dose
+            - 'ntcp': Normal Tissue Complication Probability
+            - 'parameters': Copy of input parameters
+
+    Note:
+        For spinal cord: parameters (a=20, gamma50=2.28, TD50=66.5) are derived
+        from LKB model mapping (n=0.05, m=0.175, TD50=50 Gy). These are not
+        directly tabulated by Niemierko. Sensitivity analysis recommended.
+
+    Example:
+        >>> params = {'a': 1, 'td50_gy': 24.5, 'gamma50': 2.0}
+        >>> result = calculate_ntcp_from_dvh(doses, volumes, params)
+        >>> result['ntcp']
+        0.18
+    """
+    required_keys = ['a', 'td50_gy', 'gamma50']
+    for key in required_keys:
+        if key not in params:
+            raise ValueError(f"Missing required parameter: {key}")
+
+    a = params['a']
+    td50_gy = params['td50_gy']
+    gamma50 = params['gamma50']
+
+    eud_gy = calculate_eud(doses_gy, volumes_frac, a)
+    ntcp = calculate_ntcp(eud_gy, td50_gy, gamma50)
+
+    return {
+        'eud_gy': eud_gy,
+        'ntcp': ntcp,
+        'parameters': {
+            'a': a,
+            'td50_gy': td50_gy,
+            'gamma50': gamma50,
+        }
+    }
